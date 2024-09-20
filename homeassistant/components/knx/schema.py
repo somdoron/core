@@ -336,6 +336,7 @@ class ClimateSchema(KNXPlatformSchema):
     CONF_OPERATION_MODES = "operation_modes"
     CONF_CONTROLLER_MODES = "controller_modes"
     CONF_DEFAULT_CONTROLLER_MODE = "default_controller_mode"
+    CONF_ON_OPERATION_MODE = "on_operation_mode"
     CONF_ON_OFF_ADDRESS = "on_off_address"
     CONF_ON_OFF_STATE_ADDRESS = "on_off_state_address"
     CONF_ON_OFF_INVERT = "on_off_invert"
@@ -420,6 +421,7 @@ class ClimateSchema(KNXPlatformSchema):
                 vol.Optional(
                     CONF_DEFAULT_CONTROLLER_MODE, default=HVACMode.HEAT
                 ): vol.Coerce(HVACMode),
+                vol.Optional(CONF_ON_OPERATION_MODE, default=HVACOperationMode.COMFORT): vol.Coerce(HVACOperationMode),
                 vol.Optional(CONF_MIN_TEMP): vol.Coerce(float),
                 vol.Optional(CONF_MAX_TEMP): vol.Coerce(float),
                 vol.Optional(CONF_ENTITY_CATEGORY): ENTITY_CATEGORIES_SCHEMA,

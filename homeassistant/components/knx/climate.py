@@ -157,6 +157,14 @@ class KNXClimate(KnxYamlEntity, ClimateEntity):
             self._attr_supported_features |= (
                 ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
             )
+        if (
+            self._device.mode is not None
+            and len(self._device.mode.operation_modes) >= 2
+            and HVACOperationMode.BUILDING_PROTECTION in self._device.mode.operation_modes
+        ):
+            self._attr_supported_features |= (
+                ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
+            )
 
         if (
             self._device.mode is not None
@@ -175,6 +183,9 @@ class KNXClimate(KnxYamlEntity, ClimateEntity):
         )
         self.default_hvac_mode: HVACMode = config[
             ClimateSchema.CONF_DEFAULT_CONTROLLER_MODE
+        ]
+        self.on_operation_mode: HVACOperationMode = config[
+            ClimateSchema.CONF_ON_OPERATION_MODE
         ]
         # non-OFF HVAC mode to be used when turning on the device without on_off address
         self._last_hvac_mode: HVACMode = self.default_hvac_mode
@@ -207,6 +218,17 @@ class KNXClimate(KnxYamlEntity, ClimateEntity):
             await self._device.turn_on()
             self.async_write_ha_state()
             return
+        
+        # Operation mode should have priority over controller mode, as heat / cool is also 
+        # controller mode, but doesn't turn-on the device.
+        if (
+            self._device.mode is not None
+            and self._device.mode.supports_operation_mode
+            and self.on_operation_mode in self._device.mode.operation_modes
+        ):
+            await self._device.mode.set_operation_mode(self.on_operation_mode)
+            self.async_write_ha_state()
+            return
 
         if (
             self._device.mode is not None
@@ -221,6 +243,14 @@ class KNXClimate(KnxYamlEntity, ClimateEntity):
         """Turn the entity off."""
         if self._device.supports_on_off:
             await self._device.turn_off()
+            self.async_write_ha_state()
+            return
+        
+        if (
+            self._device.mode is not None
+            and HVACOperationMode.BUILDING_PROTECTION in self._device.mode.operation_modes
+        ):
+            await self._device.mode.set_operation_mode(HVACControllerMode.BUILDING_PROTECTION)
             self.async_write_ha_state()
             return
 
@@ -242,6 +272,8 @@ class KNXClimate(KnxYamlEntity, ClimateEntity):
     def hvac_mode(self) -> HVACMode:
         """Return current operation ie. heat, cool, idle."""
         if self._device.supports_on_off and not self._device.is_on:
+            return HVACMode.OFF
+        if (self._device.mode is not None and self._device.mode.supports_operation_mode) and self._device.mode.operation_mode == HVACOperationMode.BUILDING_PROTECTION:
             return HVACMode.OFF
         if self._device.mode is not None and self._device.mode.supports_controller_mode:
             return CONTROLLER_MODES.get(
@@ -278,6 +310,8 @@ class KNXClimate(KnxYamlEntity, ClimateEntity):
         Need to be one of CURRENT_HVAC_*.
         """
         if self._device.supports_on_off and not self._device.is_on:
+            return HVACAction.OFF
+        if (self._device.mode is not None and self._device.mode.supports_operation_mode) and self._device.mode.operation_mode == HVACOperationMode.BUILDING_PROTECTION:
             return HVACAction.OFF
         if self._device.is_active is False:
             return HVACAction.IDLE
